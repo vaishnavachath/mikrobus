@@ -1,0 +1,2 @@
+menuconfig MIKROBUS
+	tristate "Module for instantiating devices on mikroBUS ports"
