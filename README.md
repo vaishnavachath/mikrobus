@@ -32,6 +32,7 @@ sudo insmod mikrobus.ko
 * Devices with gpio_cs
 
 ## MPU9DOF Click On PocketBeagle mikroBUS port 1 (Techlab mikroBUS port)
+![mpu](https://user-images.githubusercontent.com/37137606/82087060-00158200-970d-11ea-8783-64075839cbfe.JPG)
 ```
 sudo insmod mikrobus_port.ko i2c_adap_nr=1 spi_master_nr=0 serdev_ctlr_nr=4 rst_gpio_nr=89 pwm_gpio_nr=50 int_gpio_nr=23 drvname=mpu9150 reg=104 protocol=2 irq=1 irq_type=1
 ```
@@ -41,6 +42,7 @@ sudo insmod mikrobus_port.ko i2c_adap_nr=2 spi_master_nr=1 serdev_ctlr_nr=1 rst_
 ```
 
 ## microSD Click On PocketBeagle mikroBUS port 1 (Techlab mikroBUS port)
+![mikrobus_dmesgmmc](https://user-images.githubusercontent.com/37137606/82086735-96957380-970c-11ea-9ca8-769cd0a75b60.JPG)
 ```
 sudo insmod mikrobus_port.ko i2c_adap_nr=1 spi_master_nr=0 serdev_ctlr_nr=4 rst_gpio_nr=89 pwm_gpio_nr=50 int_gpio_nr=23 drvname=mmc_spi reg=0 protocol=1  max_speed_hz=50000000
 ```
