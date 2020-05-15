@@ -21,6 +21,7 @@ sudo insmod mikrobus.ko
 ## Status
 
 * Basic Clicks and Clicks with IRQ Requirement working
+* Debug Interfaces for adding and Removing mikroBUS ports
 
 ## TODO
 
