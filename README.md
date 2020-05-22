@@ -22,32 +22,27 @@ sudo insmod mikrobus.ko
 
 * Basic Clicks and Clicks with IRQ Requirement working
 * Debug Interfaces for adding and Removing mikroBUS ports
+* Multiple Devices on a Click(in single manifest)
+* Manifest Parsing Logic complete except for custom properties
 
 ## TODO
 
-* Manifest Parsing Logic not complete (so right now for demonstration insmod command-line parameters are used)
 * Fetching Manifest from EEPROM
-* Multiple Devices on a Click(in single manifest)
 * Devices under an i2c-gate
 * Devices with gpio_cs
 
-## MPU9DOF Click On PocketBeagle mikroBUS port 1 (Techlab mikroBUS port)
-![mpu](https://user-images.githubusercontent.com/37137606/82087060-00158200-970d-11ea-8783-64075839cbfe.JPG)
+## Attaching PocketBeagle mikroBUS port 1 (Techlab mikroBUS port)(run as root)
 ```
-sudo insmod mikrobus_port.ko i2c_adap_nr=1 spi_master_nr=0 serdev_ctlr_nr=4 rst_gpio_nr=89 pwm_gpio_nr=50 int_gpio_nr=23 drvname=mpu9150 reg=104 protocol=2 irq=1 irq_type=1
+printf "%b" '\x01\x00\x00\x59\x32\x17' > /sys/bus/mikrobus/add_port
 ```
-## MPU9DOF Click On PocketBeagle mikroBUS port 2
-```
-sudo insmod mikrobus_port.ko i2c_adap_nr=2 spi_master_nr=1 serdev_ctlr_nr=1 rst_gpio_nr=45 pwm_gpio_nr=110 int_gpio_nr=26 drvname=mpu9150 reg=104 protocol=2 irq=1 irq_type=1
-```
+The bytes in the byte array sequence are (in order):
+* i2c_adap_nr
+* spi_master_nr
+* serdev_ctlr_nr
+* rst_gpio_nr
+* pwm_gpio_nr
+* int_gpio_nr
 
-## microSD Click On PocketBeagle mikroBUS port 1 (Techlab mikroBUS port)
-![mikrobus_dmesgmmc](https://user-images.githubusercontent.com/37137606/82086735-96957380-970c-11ea-9ca8-769cd0a75b60.JPG)
-```
-sudo insmod mikrobus_port.ko i2c_adap_nr=1 spi_master_nr=0 serdev_ctlr_nr=4 rst_gpio_nr=89 pwm_gpio_nr=50 int_gpio_nr=23 drvname=mmc_spi reg=0 protocol=1  max_speed_hz=50000000
-```
-## MPU9DOF Click On PocketBeagle mikroBUS port 2
-```
-sudo insmod mikrobus_port.ko i2c_adap_nr=2 spi_master_nr=1 serdev_ctlr_nr=1 rst_gpio_nr=45 pwm_gpio_nr=110 int_gpio_nr=26 drvname=mmc_spi reg=1 protocol=1 max_speed_hz=50000000
-```
+## Instantiating a Click Device through a manifest blob
 
+See [manifesto tool](https://github.com/vaishnav98/manifesto/tree/mikrobus) for creating manifest blobs and instantiating clicks on the mikrobus port.
