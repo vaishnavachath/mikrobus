@@ -55,23 +55,27 @@ static int identify_descriptor(struct click_board_info *info,
 
 	expected_size = sizeof(*desc_header);
 
+		pr_debug("descriptor type: %d \n", desc_header->type);		
+		pr_debug("descriptor size: %d \n", desc_size);
+
 	switch (desc_header->type)
 	{
 
 	case MIKROBUS_TYPE_STRING:
 		expected_size += sizeof(struct mikrobus_descriptor_string);
 		expected_size += desc->string.length;
+		pr_debug("string descriptor length : %d \n", desc->string.length);
 		expected_size = ALIGN(expected_size, 4);
 		break;
 	case MIKROBUS_TYPE_PROPERTY:
 		expected_size += sizeof(struct mikrobus_descriptor_property);
 		expected_size += desc->property.length;
+		pr_debug("property descriptor length : %d \n", desc->property.length);
 		expected_size = ALIGN(expected_size, 4);
 		break;
 	case MIKROBUS_TYPE_DEVICE:
 		expected_size += sizeof(struct mikrobus_descriptor_device);
-		expected_size += desc->device.num_properties;
-		expected_size = ALIGN(expected_size, 4);
+		pr_debug("device descriptor num properties : %d \n", desc->device.num_properties);
 		break;
 	case MIKROBUS_TYPE_INVALID:
 	default:
@@ -206,14 +210,41 @@ static struct property_entry *mikrobus_property_get(struct click_board_info *inf
 	return prop_ptr;
 }
 
+static int mikrobus_manifest_attach_device(struct click_board_info *info,
+							   struct mikrobus_descriptor_device *dev_desc)
+{
+	struct click_device_info *dev;
+
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+    if (!dev)
+    {
+        return -ENOMEM;
+    }
+
+	dev->id = dev_desc->id;
+	dev->drv_name = mikrobus_string_get(info, dev_desc->driver_stringid);
+    dev->protocol = dev_desc->protocol;
+    dev->reg = dev_desc->reg;
+    dev->irq = dev_desc->irq;
+    dev->irq_type = dev_desc->irq_type;
+    dev->max_speed_hz = le32_to_cpu(dev_desc->max_speed_hz);
+	dev->mode = dev_desc->mode;
+	dev->cs_gpio = dev_desc->cs_gpio;
+	dev->num_gpio_resources = dev_desc->num_gpio_resources;
+	dev->num_properties = dev_desc->num_properties;
+
+	list_add_tail(&dev->links, &info->devices);
+
+	return 0;
+}
+
+
 static int mikrobus_manifest_parse_devices(struct click_board_info *info)
 {
 	struct mikrobus_descriptor_device *desc_device;
 	struct manifest_desc *desc, *next;
-	int i;
-
-	//dev = kzalloc(sizeof(*port), GFP_KERNEL);
-
+	int devcount=0;
+	
 	if (WARN_ON(!list_empty(&info->devices)))
 		return false;
 
@@ -222,21 +253,21 @@ static int mikrobus_manifest_parse_devices(struct click_board_info *info)
 		if (desc->type != MIKROBUS_TYPE_DEVICE)
 			continue;
 		desc_device = desc->data;
-
-		pr_info("device name is : %s \n", mikrobus_string_get(info, desc_device->driver_stringid));
-		pr_info("device protocol is : %d \n", desc_device->protocol);
-		pr_info("device address is : %d \n", desc_device->reg);
-		pr_info("device cs_gpio is : %d \n", desc_device->cs_gpio);
-		pr_info("device irq is : %d \n", desc_device->irq);
-		pr_info("device protocol is : %d \n", desc_device->num_properties);
-
-		for (; i < desc_device->num_properties; ++i)
-		{
-			pr_info("device property %d : id=%d \n", i, desc_device->prop_ids[i]);
-		}
+		pr_debug(" Click Device ID : %d \n", desc_device->id);
+		pr_debug(" Click Device protocol : %d \n", desc_device->protocol);
+		pr_debug(" Click Device reg : %d \n", desc_device->reg);
+		pr_debug(" Click Device max_speed_hz : %d \n", desc_device->max_speed_hz);
+		pr_debug(" Click Device mode : %d \n", desc_device->mode);
+		pr_debug(" Click Device irq : %d \n", desc_device->irq);
+		pr_debug(" Click Device irq_type : %d \n", desc_device->irq_type);
+		pr_debug(" Click Device cs_gpio : %d \n", desc_device->cs_gpio);
+		pr_debug(" Click Device num_gpio_resources : %d \n", desc_device->num_gpio_resources);
+		pr_debug(" Click Device nume_properties : %d \n", desc_device->num_properties);
+		mikrobus_manifest_attach_device(info, desc_device);
+		devcount++;
 	}
 
-	return 0; /* Error; count should also be 0 */
+	return devcount;
 }
 
 bool mikrobus_manifest_parse(struct click_board_info *info, void *data, size_t size)
@@ -246,6 +277,7 @@ bool mikrobus_manifest_parse(struct click_board_info *info, void *data, size_t s
 	struct mikrobus_descriptor *desc;
 	u16 manifest_size;
 	bool result;
+	int dev_count;
 
 	if (WARN_ON(!list_empty(&info->manifest_descs)))
 		return false;
@@ -256,14 +288,6 @@ bool mikrobus_manifest_parse(struct click_board_info *info, void *data, size_t s
 	manifest = data;
 	header = &manifest->header;
 	manifest_size = le16_to_cpu(header->size);
-
-	pr_info("manifest size: %d \n", manifest_size);
-	pr_info("manifest version major : %d \n", header->version_major);
-	pr_info("click string id : %d \n", header->click_stringid);
-	pr_info("num_devices : %d \n", header->num_devices);
-	pr_info("rst_gpio_state : %d \n", header->rst_gpio_state);
-	pr_info("pwm_gpio_state : %d \n", header->pwm_gpio_state);
-	pr_info("int_gpio_state : %d \n", header->int_gpio_state);
 
 	if (manifest_size != size)
 		return false;
@@ -294,12 +318,19 @@ bool mikrobus_manifest_parse(struct click_board_info *info, void *data, size_t s
 	info->pwm_gpio_state = header->pwm_gpio_state;
 	info->int_gpio_state = header->int_gpio_state;
 
-	pr_info("click name : %s \n", info->name);
+	pr_debug(" Click Board Name : %s \n", info->name);
+	pr_debug(" Click Board Num Devices : %d \n", info->num_devices);
+	pr_debug(" Click Board RST GPIO State : %d \n", info->rst_gpio_state);
+	pr_debug(" Click Board PWM GPIO State : %d \n", info->pwm_gpio_state);
+	pr_debug(" Click Board INT GPIO State : %d \n", info->int_gpio_state);
 
-	result = mikrobus_manifest_parse_devices(info);
+
+	dev_count = mikrobus_manifest_parse_devices(info);
+
+	pr_info(" %s click manifest parsed with %d device(s) \n", info->name,info->num_devices);
 
 	release_manifest_descriptors(info);
-
-	return result;
+		
+	return true;
 }
 EXPORT_SYMBOL_GPL(mikrobus_manifest_parse);

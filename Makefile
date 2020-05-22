@@ -7,5 +7,5 @@ all:
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
 install:
-	sudo cp *.ko /lib/modules/$(shell uname -r)/extra/
-	sudo depmod -a
+	cp *.ko /lib/modules/$(shell uname -r)/kernel/drivers/misc/
+	depmod -a

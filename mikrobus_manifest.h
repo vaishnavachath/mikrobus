@@ -42,13 +42,19 @@ struct mikrobus_descriptor_property
 
 struct mikrobus_descriptor_device
 {
+	__u8 id;
 	__u8 driver_stringid;
 	__u8 num_properties;
 	__u8 protocol;
+	__le32 max_speed_hz;
 	__u8 reg;
+	__u8 mode;
+	__u8 num_gpio_resources;
 	__u8 cs_gpio;
 	__u8 irq;
-	__u8 prop_ids[0];
+	__u8 irq_type;
+	__u8 prop_link;
+	__u8 gpio_link;
 } __packed;
 
 struct mikrobus_descriptor_header
