@@ -41,6 +41,7 @@ The bytes in the byte array sequence are (in order):
 * rst_gpio_nr
 * pwm_gpio_nr
 * int_gpio_nr
+
 Note:- Attaching the mikrobus driver automatically probes an EEPROM on the I2C bus and if the probe is succesful, the driver tries to load a manifest from the eeprom and instantiate the click devices on the mikrobus port.
 ## Instantiating a Click Device through a manifest blob
 
