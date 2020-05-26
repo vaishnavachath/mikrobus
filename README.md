@@ -23,11 +23,10 @@ sudo insmod mikrobus.ko
 * Basic Clicks and Clicks with IRQ Requirement working
 * Debug Interfaces for adding and Removing mikroBUS ports
 * Multiple Devices on a Click(in single manifest)
-* Manifest Parsing Logic complete except for custom properties
+* Manifest Parsing Logic complete
+* Fetching Manifest from EEPROM
 
 ## TODO
-
-* Fetching Manifest from EEPROM
 * Devices under an i2c-gate
 * Devices with gpio_cs
 
@@ -42,7 +41,7 @@ The bytes in the byte array sequence are (in order):
 * rst_gpio_nr
 * pwm_gpio_nr
 * int_gpio_nr
-
+Note:- Attaching the mikrobus driver automatically probes an EEPROM on the I2C bus and if the probe is succesful, the driver tries to load a manifest from the eeprom and instantiate the click devices on the mikrobus port.
 ## Instantiating a Click Device through a manifest blob
 
 See [manifesto tool](https://github.com/vaishnav98/manifesto/tree/mikrobus) for creating manifest blobs and instantiating clicks on the mikrobus port.
