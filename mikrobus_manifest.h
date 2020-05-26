@@ -94,5 +94,6 @@ struct mikrobus_manifest
 } __packed;
 
 bool mikrobus_manifest_parse(struct click_board_info *info, void *data, size_t size);
+size_t mikrobus_manifest_header_validate(void *data, size_t size);
 
 #endif /* __MIKROBUS_MANIFEST_H */
