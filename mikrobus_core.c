@@ -3,6 +3,7 @@
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/idr.h>
+#include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/jump_label.h>
 #include <linux/kernel.h>
@@ -13,6 +14,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/i2c.h>
+#include <linux/i2c-mux.h>
 #include <linux/gpio.h>
 #include <linux/gpio/machine.h>
 #include <linux/nvmem-consumer.h>
@@ -386,6 +388,35 @@ static void release_click_devices(struct click_board_info* info)
         release_mikrobus_device(dev);
 }
 
+static int mikrobus_i2c_mux_select_bypass(struct i2c_mux_core* muxc, u32 chan_id)
+{
+    return 0;
+}
+
+static int mikrobus_i2c_mux_add(struct mikrobus_port* port, int click_id)
+{
+    struct click_board_info* info = port->click;
+    struct click_device_info* dev;
+    struct click_device_info* next;
+    struct i2c_client* client;
+    int found = 1;
+
+    list_for_each_entry_safe(dev, next, &info->devices, links)
+    {
+        if (dev->id == (click_id - 1)) {
+            found = 0;
+            client = (struct i2c_client*)dev->dev_client;
+            port->i2c_mux_adap = i2c_mux_alloc(port->i2c_adap, &client->dev,
+                1, 0, I2C_MUX_LOCKED | I2C_MUX_GATE,
+                mikrobus_i2c_mux_select_bypass, NULL);
+            i2c_mux_add_adapter(port->i2c_mux_adap, 0, 0, 0);
+            break;
+        }
+    }
+
+    return found;
+}
+
 static int mikrobus_register_device(struct mikrobus_port* port, struct click_device_info* dev, char* click_name)
 {
     struct i2c_board_info* i2c;
@@ -452,6 +483,27 @@ static int mikrobus_register_device(struct mikrobus_port* port, struct click_dev
             i2c->properties = dev->properties;
         i2c->addr = dev->reg;
         dev->dev_client = (void*)i2c_new_device(port->i2c_adap, i2c);
+        retval = sysfs_create_link(&port->dev.kobj, &((struct i2c_client*)dev->dev_client)->dev.kobj, sys_link_name);
+        break;
+    case MIKROBUS_PROTOCOL_I2C_MUX:
+        mdelay(10);
+        pr_info("i2c mux device %s , id = %d \n", dev->drv_name, dev->id);
+        retval = mikrobus_i2c_mux_add(port, dev->id);
+        if (retval) {
+            return -ENOMEM;
+        }
+        pr_info("i2c_mux added %s %d \n", dev->drv_name, dev->id);
+        i2c = kzalloc(sizeof(*i2c), GFP_KERNEL);
+        if (!i2c) {
+            return -ENOMEM;
+        }
+        strncpy(i2c->type, dev->drv_name, sizeof(i2c->type) - 1);
+        if (dev->irq)
+            i2c->irq = mikrobus_get_irq(port, dev->irq, dev->irq_type);
+        if (dev->properties)
+            i2c->properties = dev->properties;
+        i2c->addr = dev->reg;
+        dev->dev_client = (void*)i2c_new_device(port->i2c_mux_adap->adapter[0], i2c);
         retval = sysfs_create_link(&port->dev.kobj, &((struct i2c_client*)dev->dev_client)->dev.kobj, sys_link_name);
         break;
     case MIKROBUS_PROTOCOL_UART:
@@ -523,10 +575,10 @@ int mikrobus_register_click(struct mikrobus_port* port, struct click_board_info*
         return retval;
     }
 
+    port->click = board;
+
     list_for_each_entry_safe(devinfo, next, &board->devices, links)
         mikrobus_register_device(port, devinfo, board->name);
-
-    port->click = board;
 
     return 0;
 }

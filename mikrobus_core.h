@@ -112,6 +112,7 @@ struct mikrobus_port
 	struct i2c_adapter *i2c_adap;
 	struct click_board_info *click;
 	struct i2c_client *eeprom_client;
+	struct i2c_mux_core *i2c_mux_adap;
 	struct nvmem_device *eeprom;
 };
 #define to_mikrobus_port(d) container_of(d, struct mikrobus_port, dev)
