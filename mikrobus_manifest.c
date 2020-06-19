@@ -52,28 +52,32 @@ static int identify_descriptor(struct click_board_info* info,
 
     expected_size = sizeof(*desc_header);
 
-    pr_debug("descriptor type: %d \n", desc_header->type);
-    pr_debug("descriptor size: %d \n", desc_size);
-
     switch (desc_header->type) {
 
-    case MIKROBUS_TYPE_STRING:
+    case GREYBUS_TYPE_STRING:
         expected_size += sizeof(struct mikrobus_descriptor_string);
         expected_size += desc->string.length;
-        pr_debug("string descriptor length : %d \n", desc->string.length);
-        pr_debug("string descriptor id : %d \n", desc->string.id);
         expected_size = ALIGN(expected_size, 4);
         break;
     case MIKROBUS_TYPE_PROPERTY:
         expected_size += sizeof(struct mikrobus_descriptor_property);
         expected_size += desc->property.length;
-        pr_debug("property descriptor id : %d \n", desc->property.id);
-        pr_debug("property descriptor length : %d \n", desc->property.length);
         expected_size = ALIGN(expected_size, 4);
         break;
     case MIKROBUS_TYPE_DEVICE:
         expected_size += sizeof(struct mikrobus_descriptor_device);
-        pr_debug("device descriptor num properties : %d \n", desc->device.num_properties);
+        break;
+    case MIKROBUS_TYPE_MIKROBUS:
+        expected_size += sizeof(struct mikrobus_descriptor_mikrobus);
+        break;
+    case GREYBUS_TYPE_INTERFACE:
+        expected_size += sizeof(struct greybus_descriptor_interface);
+        break;
+    case GREYBUS_TYPE_CPORT:
+        expected_size += sizeof(struct greybus_descriptor_cport);
+        break;
+    case GREYBUS_TYPE_BUNDLE:
+        expected_size += sizeof(struct greybus_descriptor_bundle);
         break;
     case MIKROBUS_TYPE_INVALID:
     default:
@@ -104,7 +108,7 @@ static char* mikrobus_string_get(struct click_board_info* info, u8 string_id)
 
     list_for_each_entry(descriptor, &info->manifest_descs, links)
     {
-        if (descriptor->type != MIKROBUS_TYPE_STRING)
+        if (descriptor->type != GREYBUS_TYPE_STRING)
             continue;
 
         desc_string = descriptor->data;
@@ -122,9 +126,49 @@ static char* mikrobus_string_get(struct click_board_info* info, u8 string_id)
         return ERR_PTR(-ENOMEM);
     string[desc_string->length] = '\0';
 
-    release_manifest_descriptor(descriptor);
-
     return string;
+}
+
+static void mikrobus_state_get(struct click_board_info* info)
+{
+    struct mikrobus_descriptor_mikrobus* mikrobus;
+    struct greybus_descriptor_interface* interface;
+    struct manifest_desc* descriptor;
+    bool found = false;
+
+    list_for_each_entry(descriptor, &info->manifest_descs, links)
+    {
+        if (descriptor->type == MIKROBUS_TYPE_MIKROBUS)
+        {
+            mikrobus = descriptor->data;
+            found = true;
+            break;
+        }
+    }
+
+    if(found)
+    {
+        info->num_devices = mikrobus->num_devices;
+        info->rst_gpio_state = mikrobus->rst_gpio_state;
+        info->pwm_gpio_state = mikrobus->pwm_gpio_state;
+        info->int_gpio_state = mikrobus->int_gpio_state;
+    }
+    else {
+        info->num_devices = 1;
+        info->rst_gpio_state = MIKROBUS_GPIO_UNUSED;
+        info->pwm_gpio_state = MIKROBUS_GPIO_UNUSED;
+        info->int_gpio_state = MIKROBUS_GPIO_UNUSED;
+    }
+
+    list_for_each_entry(descriptor, &info->manifest_descs, links)
+    {
+        if (descriptor->type == GREYBUS_TYPE_INTERFACE)
+        {
+            interface = descriptor->data;
+            break;
+        }
+    }
+    info->name = mikrobus_string_get(info, interface->product_stringid);
 }
 
 static struct property_entry* mikrobus_property_entry_get(struct click_board_info* info, u8* prop_link, int num_properties)
@@ -195,11 +239,6 @@ static struct property_entry* mikrobus_property_entry_get(struct click_board_inf
         default:
             return ERR_PTR(-EINVAL);
         }
-
-        release_manifest_descriptor(descriptor);
-
-        pr_debug("Property Name %s \n", properties[i].name);
-        pr_debug("Property type %d \n", properties[i].type);
     }
 
     return properties;
@@ -230,7 +269,6 @@ static u8* mikrobus_property_link_get(struct click_board_info* info, u8 prop_id,
         return ERR_PTR(-ENOENT);
 
     val_u8 = kmemdup(&desc_property->value, desc_property->length, GFP_KERNEL);
-    release_manifest_descriptor(descriptor);
 
     return val_u8;
 }
@@ -263,7 +301,7 @@ static int mikrobus_manifest_attach_device(struct click_board_info* info,
     dev->num_gpio_resources = dev_desc->num_gpio_resources;
     dev->num_properties = dev_desc->num_properties;
 
-    pr_info("Device %d , number of properties=%d \n", dev->id, dev->num_properties);
+    pr_info("Device %d , number of properties=%d , number of gpio resources=%d \n", dev->id, dev->num_properties, dev->num_gpio_resources);
 
     if (dev->num_properties > 0) {
         prop_link = mikrobus_property_link_get(info, dev_desc->prop_link, MIKROBUS_PROPERTY_TYPE_LINK);
@@ -313,16 +351,6 @@ static int mikrobus_manifest_parse_devices(struct click_board_info* info)
         if (desc->type != MIKROBUS_TYPE_DEVICE)
             continue;
         desc_device = desc->data;
-        pr_debug(" Click Device ID : %d \n", desc_device->id);
-        pr_debug(" Click Device protocol : %d \n", desc_device->protocol);
-        pr_debug(" Click Device reg : %d \n", desc_device->reg);
-        pr_debug(" Click Device max_speed_hz : %d \n", desc_device->max_speed_hz);
-        pr_debug(" Click Device mode : %d \n", desc_device->mode);
-        pr_debug(" Click Device irq : %d \n", desc_device->irq);
-        pr_debug(" Click Device irq_type : %d \n", desc_device->irq_type);
-        pr_debug(" Click Device cs_gpio : %d \n", desc_device->cs_gpio);
-        pr_debug(" Click Device num_gpio_resources : %d \n", desc_device->num_gpio_resources);
-        pr_debug(" Click Device nume_properties : %d \n", desc_device->num_properties);
         mikrobus_manifest_attach_device(info, desc_device);
         devcount++;
     }
@@ -336,7 +364,6 @@ bool mikrobus_manifest_parse(struct click_board_info* info, void* data, size_t s
     struct mikrobus_manifest_header* header;
     struct mikrobus_descriptor* desc;
     u16 manifest_size;
-    bool result;
     int dev_count;
 
     if (WARN_ON(!list_empty(&info->manifest_descs)))
@@ -363,27 +390,17 @@ bool mikrobus_manifest_parse(struct click_board_info* info, void* data, size_t s
 
         desc_size = identify_descriptor(info, desc, size);
         if (desc_size < 0) {
-            result = false;
+            pr_err(" Invalid Manifest Descriptor");
+            return -EINVAL;
         }
         desc = (struct mikrobus_descriptor*)((char*)desc + desc_size);
         size -= desc_size;
     }
 
-    info->name = mikrobus_string_get(info, header->click_stringid);
-    info->num_devices = header->num_devices;
-    info->rst_gpio_state = header->rst_gpio_state;
-    info->pwm_gpio_state = header->pwm_gpio_state;
-    info->int_gpio_state = header->int_gpio_state;
-
-    pr_debug(" Click Board Name : %s \n", info->name);
-    pr_debug(" Click Board Num Devices : %d \n", info->num_devices);
-    pr_debug(" Click Board RST GPIO State : %d \n", info->rst_gpio_state);
-    pr_debug(" Click Board PWM GPIO State : %d \n", info->pwm_gpio_state);
-    pr_debug(" Click Board INT GPIO State : %d \n", info->int_gpio_state);
-
+    mikrobus_state_get(info);
     dev_count = mikrobus_manifest_parse_devices(info);
 
-    pr_info(" %s click manifest parsed with %d device(s) \n", info->name, info->num_devices);
+    pr_info(" %s manifest parsed with %d device(s) \n", info->name, info->num_devices);
 
     release_manifest_descriptors(info);
 
@@ -396,8 +413,6 @@ size_t mikrobus_manifest_header_validate(void* data, size_t size)
     struct mikrobus_manifest_header* header;
     u16 manifest_size;
 
-    pr_info("manifest header validate size %d , header size is %d \n", size, sizeof(*header));
-
     if (size < sizeof(*header))
         return 0;
 
@@ -405,9 +420,6 @@ size_t mikrobus_manifest_header_validate(void* data, size_t size)
     manifest_size = le16_to_cpu(header->size);
 
     if (header->version_major > MIKROBUS_VERSION_MAJOR) {
-        return 0;
-    }
-    if ((header->click_stringid < 1) || (header->num_devices < 1)) {
         return 0;
     }
 

@@ -154,14 +154,14 @@ new_device_store(struct device* dev, struct device_attribute* attr,
         INIT_LIST_HEAD(&click->devices);
     }
     else {
-        pr_err("port %d already has click registered, manifest size: %ld", port->id, count);
+        pr_err("port %d already has click registered", port->id);
         return -EINVAL;
     }
 
     retval = mikrobus_manifest_parse(click, (void*)buf, count);
 
     if (!retval) {
-        pr_err("failed to parse manifest, size: %ld", count);
+        pr_err("failed to parse manifest");
         return -EINVAL;
     }
 
