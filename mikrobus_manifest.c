@@ -104,13 +104,12 @@ static char* mikrobus_string_get(struct click_board_info* info, u8 string_id)
 
     list_for_each_entry(descriptor, &info->manifest_descs, links)
     {
-        if (descriptor->type != MIKROBUS_TYPE_STRING)
-            continue;
-
-        desc_string = descriptor->data;
-        if (desc_string->id == string_id) {
-            found = true;
-            break;
+        if (descriptor->type == MIKROBUS_TYPE_STRING) {
+            desc_string = descriptor->data;
+            if (desc_string->id == string_id) {
+                found = true;
+                break;
+            }
         }
     }
     if (!found)
@@ -148,13 +147,12 @@ static struct property_entry* mikrobus_property_entry_get(struct click_board_inf
 
         list_for_each_entry(descriptor, &info->manifest_descs, links)
         {
-            if (descriptor->type != MIKROBUS_TYPE_PROPERTY)
-                continue;
-
-            desc_property = descriptor->data;
-            if (desc_property->id == prop_link[i]) {
-                found = true;
-                break;
+            if (descriptor->type == MIKROBUS_TYPE_PROPERTY) {
+                desc_property = descriptor->data;
+                if (desc_property->id == prop_link[i]) {
+                    found = true;
+                    break;
+                }
             }
         }
         if (!found)
@@ -217,13 +215,12 @@ static u8* mikrobus_property_link_get(struct click_board_info* info, u8 prop_id,
 
     list_for_each_entry(descriptor, &info->manifest_descs, links)
     {
-        if (descriptor->type != MIKROBUS_TYPE_PROPERTY)
-            continue;
-
-        desc_property = descriptor->data;
-        if (desc_property->id == prop_id && desc_property->type == prop_type) {
-            found = true;
-            break;
+        if (descriptor->type == MIKROBUS_TYPE_PROPERTY) {
+            desc_property = descriptor->data;
+            if (desc_property->id == prop_id && desc_property->type == prop_type) {
+                found = true;
+                break;
+            }
         }
     }
     if (!found)
@@ -280,14 +277,13 @@ static int mikrobus_manifest_attach_device(struct click_board_info* info,
         for (i = 0; i < dev->num_gpio_resources; i++) {
             list_for_each_entry(descriptor, &info->manifest_descs, links)
             {
-                if (descriptor->type != MIKROBUS_TYPE_PROPERTY)
-                    continue;
-
-                desc_property = descriptor->data;
-                if (desc_property->id == gpio_desc_link[i]) {
-                    lookup->table[i].chip_hwnum = *desc_property->value;
-                    lookup->table[i].con_id = mikrobus_string_get(info, desc_property->propname_stringid);
-                    break;
+                if (descriptor->type == MIKROBUS_TYPE_PROPERTY) {
+                    desc_property = descriptor->data;
+                    if (desc_property->id == gpio_desc_link[i]) {
+                        lookup->table[i].chip_hwnum = *desc_property->value;
+                        lookup->table[i].con_id = mikrobus_string_get(info, desc_property->propname_stringid);
+                        break;
+                    }
                 }
             }
         }
@@ -310,21 +306,21 @@ static int mikrobus_manifest_parse_devices(struct click_board_info* info)
 
     list_for_each_entry_safe(desc, next, &info->manifest_descs, links)
     {
-        if (desc->type != MIKROBUS_TYPE_DEVICE)
-            continue;
-        desc_device = desc->data;
-        pr_debug(" Click Device ID : %d \n", desc_device->id);
-        pr_debug(" Click Device protocol : %d \n", desc_device->protocol);
-        pr_debug(" Click Device reg : %d \n", desc_device->reg);
-        pr_debug(" Click Device max_speed_hz : %d \n", desc_device->max_speed_hz);
-        pr_debug(" Click Device mode : %d \n", desc_device->mode);
-        pr_debug(" Click Device irq : %d \n", desc_device->irq);
-        pr_debug(" Click Device irq_type : %d \n", desc_device->irq_type);
-        pr_debug(" Click Device cs_gpio : %d \n", desc_device->cs_gpio);
-        pr_debug(" Click Device num_gpio_resources : %d \n", desc_device->num_gpio_resources);
-        pr_debug(" Click Device nume_properties : %d \n", desc_device->num_properties);
-        mikrobus_manifest_attach_device(info, desc_device);
-        devcount++;
+        if (desc->type == MIKROBUS_TYPE_DEVICE) {
+            desc_device = desc->data;
+            pr_debug(" Click Device ID : %d \n", desc_device->id);
+            pr_debug(" Click Device protocol : %d \n", desc_device->protocol);
+            pr_debug(" Click Device reg : %d \n", desc_device->reg);
+            pr_debug(" Click Device max_speed_hz : %d \n", desc_device->max_speed_hz);
+            pr_debug(" Click Device mode : %d \n", desc_device->mode);
+            pr_debug(" Click Device irq : %d \n", desc_device->irq);
+            pr_debug(" Click Device irq_type : %d \n", desc_device->irq_type);
+            pr_debug(" Click Device cs_gpio : %d \n", desc_device->cs_gpio);
+            pr_debug(" Click Device num_gpio_resources : %d \n", desc_device->num_gpio_resources);
+            pr_debug(" Click Device nume_properties : %d \n", desc_device->num_properties);
+            mikrobus_manifest_attach_device(info, desc_device);
+            devcount++;
+        }
     }
 
     return devcount;
